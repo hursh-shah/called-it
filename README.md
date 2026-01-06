@@ -87,6 +87,15 @@ Then redeploy.
 - Create markets: `/admin`
 - Trade: `/markets/:id`
 
+## Troubleshooting
+
+### `self-signed certificate in certificate chain`
+
+This is a Postgres TLS error. If your DB uses a self-signed cert (common in local/dev or behind a proxy), set:
+
+- `DATABASE_SSL_REJECT_UNAUTHORIZED=false` (quick fix), or
+- `DATABASE_SSL_CA` to your CA PEM (preferred), and keep `DATABASE_SSL_REJECT_UNAUTHORIZED=true`.
+
 ## Notes
 
 - Credits are stored as cents in the DB (`balance_cents`, `cost_cents`, etc.).
