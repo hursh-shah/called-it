@@ -67,13 +67,26 @@ function requireDatabaseUrl() {
 function buildPoolConfig() {
   const connectionString = requireDatabaseUrl();
 
-  let ssl: undefined | { rejectUnauthorized: boolean; ca?: string } = undefined;
+  let host: string;
+  let port: number | undefined;
+  let user: string | undefined;
+  let password: string | undefined;
+  let database: string | undefined;
+  let ssl: false | undefined | { rejectUnauthorized: boolean; ca?: string } = undefined;
   try {
     const url = new URL(connectionString);
-    const host = url.hostname.toLowerCase();
-    const isLocalHost = host === "localhost" || host === "127.0.0.1" || host === "::1";
+    host = url.hostname;
+    port = url.port ? Number(url.port) : undefined;
+    user = url.username ? decodeURIComponent(url.username) : undefined;
+    password = url.password ? decodeURIComponent(url.password) : undefined;
+    database =
+      url.pathname && url.pathname !== "/" ? decodeURIComponent(url.pathname.slice(1)) : undefined;
+
+    const hostLower = url.hostname.toLowerCase();
+    const isLocalHost =
+      hostLower === "localhost" || hostLower === "127.0.0.1" || hostLower === "::1";
     const isSupabaseHost =
-      host.endsWith(".supabase.co") || host.endsWith(".pooler.supabase.com");
+      hostLower.endsWith(".supabase.co") || hostLower.endsWith(".pooler.supabase.com");
 
     const sslmodeFromUrl = url.searchParams.get("sslmode")?.toLowerCase();
     const sslmodeFromEnv = normalizeOptionalEnvValue(process.env.PGSSLMODE)?.toLowerCase();
@@ -96,10 +109,20 @@ function buildPoolConfig() {
         normalizeOptionalEnvValue(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED)
       );
       const ca = normalizeOptionalPem(process.env.DATABASE_SSL_CA);
-      const rejectUnauthorized = rejectUnauthorizedFromEnv ?? (ca ? true : false);
-      ssl = ca
-        ? { rejectUnauthorized, ca }
-        : { rejectUnauthorized };
+      let rejectUnauthorized: boolean;
+      if (rejectUnauthorizedFromEnv != null) {
+        rejectUnauthorized = rejectUnauthorizedFromEnv;
+      } else if (sslmode === "verify-ca" || sslmode === "verify-full") {
+        rejectUnauthorized = true;
+      } else if (sslmode === "require" || sslmode === "prefer" || sslmode === "no-verify") {
+        rejectUnauthorized = false;
+      } else {
+        rejectUnauthorized = ca != null;
+      }
+
+      ssl = ca ? { rejectUnauthorized, ca } : { rejectUnauthorized };
+    } else if (sslmode === "disable") {
+      ssl = false;
     }
   } catch {
     throw new Error(
@@ -107,7 +130,7 @@ function buildPoolConfig() {
     );
   }
 
-  return { connectionString, ssl };
+  return { host, port, user, password, database, ssl };
 }
 
 export function getPool(): Pool {
