@@ -6,7 +6,6 @@ import type { PoolClient } from "pg";
 import { getPool } from "./db";
 
 const SESSION_COOKIE = "cm_session";
-const SESSION_TTL_DAYS = 30;
 
 export type CurrentUser = {
   id: string;

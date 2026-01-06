@@ -1,11 +1,9 @@
 import "server-only";
 
-import pg from "pg";
-
-const { Pool } = pg;
+import { Pool } from "pg";
 
 type GlobalWithPgPool = typeof globalThis & {
-  __cm_pg_pool__?: pg.Pool;
+  __cm_pg_pool__?: Pool;
 };
 
 function requireDatabaseUrl() {
@@ -14,7 +12,7 @@ function requireDatabaseUrl() {
   return url;
 }
 
-export function getPool() {
+export function getPool(): Pool {
   const globalForPg = globalThis as GlobalWithPgPool;
 
   if (globalForPg.__cm_pg_pool__) return globalForPg.__cm_pg_pool__;
