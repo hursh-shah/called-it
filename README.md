@@ -56,6 +56,28 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## Deploy (Vercel + Supabase)
+
+This app uses a direct Postgres connection via `DATABASE_URL` (it does not use the Supabase REST API keys).
+
+### 1) Create tables in Supabase
+
+In Supabase Dashboard → **SQL Editor** → **New query**:
+
+- Open `db/migrations/001_init.sql` and paste its *SQL contents* (the SQL editor can’t run a file path)
+- Run it once
+
+### 2) Set Vercel environment variables
+
+In Vercel Project → **Settings** → **Environment Variables** (Production + Preview):
+
+- `DATABASE_URL`: use the Postgres connection string from Supabase (prefer the **Connection Pooler** URL for serverless)
+- `INVITE_TOKEN`: shared with friends
+- `ADMIN_INVITE_TOKEN`: only for you
+- `MONTHLY_ALLOWANCE_CREDITS` (optional, default `100`)
+
+Then redeploy.
+
 ## Usage
 
 - Admin login: visit `/login?token=ADMIN_INVITE_TOKEN_VALUE` and choose a username.
@@ -68,4 +90,3 @@ Open `http://localhost:3000`.
 - Credits are stored as cents in the DB (`balance_cents`, `cost_cents`, etc.).
 - Market liquidity is controlled by `b` (bigger `b` = less price impact per trade).
 - Trading closes automatically once `closes_at` is reached (even if `status` is still `OPEN`).
-
