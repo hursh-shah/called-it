@@ -7,7 +7,7 @@ import { formatCredits } from "../lib/money";
 import LogoutButton from "../components/LogoutButton";
 
 export const metadata: Metadata = {
-  title: "Council Market",
+  title: "Called It",
   description: "A small prediction market for your group chat."
 };
 
@@ -26,7 +26,7 @@ export default async function RootLayout({
         <header className="border-b border-zinc-800">
           <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
             <Link href="/" className="font-semibold tracking-tight">
-              Council Market
+              Called It
             </Link>
             <nav className="flex items-center gap-4 text-sm text-zinc-300">
               <Link href="/markets" className="hover:text-zinc-50">

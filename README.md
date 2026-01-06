@@ -1,4 +1,4 @@
-# Council Market
+# Called It
 
 A credits-only, small-group prediction market using an LMSR automated market maker (AMM).
 
