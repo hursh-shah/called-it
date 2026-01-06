@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import AdminCreditAdjuster from "../../components/AdminCreditAdjuster";
 import AdminMarketRow from "../../components/AdminMarketRow";
 import CreateMarketForm from "../../components/CreateMarketForm";
 import { getCurrentUser } from "../../lib/auth";
@@ -20,6 +21,18 @@ export default async function AdminPage() {
   }
 
   const pool = getPool();
+  const usersRes = await pool.query<{
+    id: string;
+    username: string;
+    balance_cents: string;
+  }>(
+    `
+      SELECT id, username, balance_cents
+      FROM users
+      ORDER BY username ASC
+    `
+  );
+
   const res = await pool.query<{
     id: string;
     title: string;
@@ -47,6 +60,14 @@ export default async function AdminPage() {
       </div>
 
       <CreateMarketForm />
+
+      <AdminCreditAdjuster
+        users={usersRes.rows.map((u) => ({
+          id: u.id,
+          username: u.username,
+          balanceCents: Number(u.balance_cents)
+        }))}
+      />
 
       <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-4">
         <h2 className="text-sm font-medium">Manage markets</h2>
