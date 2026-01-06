@@ -153,6 +153,23 @@ export async function POST(req: Request, context: { params: { marketId: string }
       );
     }
 
+    const involvedRes = await client.query(
+      `
+        SELECT 1
+        FROM market_involved_users
+        WHERE market_id = $1 AND user_id = $2
+        LIMIT 1
+      `,
+      [market.id, user.id]
+    );
+    if (involvedRes.rowCount > 0) {
+      await client.query("ROLLBACK");
+      return NextResponse.json(
+        { error: "You are listed as involved in this market and cannot trade it." },
+        { status: 403 }
+      );
+    }
+
     const closesAtMs = new Date(market.closes_at).getTime();
     if (Date.now() >= closesAtMs) {
       await client.query("ROLLBACK");

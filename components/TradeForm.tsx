@@ -12,6 +12,7 @@ type Props = {
   qYes: number;
   qNo: number;
   tradingClosed: boolean;
+  tradingDisabledReason?: string | null;
   userBalanceCents: number;
   userSharesYes: number;
   userSharesNo: number;
@@ -38,6 +39,9 @@ export default function TradeForm(props: Props) {
     const qNo = props.qNo;
     const priceYes = lmsrPriceYes(b, qYes, qNo);
 
+    if (props.tradingDisabledReason) {
+      return { priceYes, detail: props.tradingDisabledReason };
+    }
     if (props.tradingClosed) return { priceYes, detail: "Trading is closed." };
     if (amountNumber <= 0) return { priceYes, detail: "Enter an amount." };
 
@@ -93,8 +97,9 @@ export default function TradeForm(props: Props) {
   }
 
   const maxSellShares = side === "YES" ? props.userSharesYes : props.userSharesNo;
+  const tradingDisabled = props.tradingClosed || Boolean(props.tradingDisabledReason);
   const disabled =
-    props.tradingClosed ||
+    tradingDisabled ||
     isSubmitting ||
     amountNumber <= 0 ||
     (kind === "SELL" && amountType !== "SHARES");
@@ -109,7 +114,7 @@ export default function TradeForm(props: Props) {
             value={side}
             onChange={(e) => setSide(e.target.value as Side)}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none"
-            disabled={props.tradingClosed}
+            disabled={tradingDisabled}
           >
             <option value="YES">YES</option>
             <option value="NO">NO</option>
@@ -125,7 +130,7 @@ export default function TradeForm(props: Props) {
               if (nextKind === "SELL") setAmountType("SHARES");
             }}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none"
-            disabled={props.tradingClosed}
+            disabled={tradingDisabled}
           >
             <option value="BUY">Buy</option>
             <option value="SELL">Sell</option>
@@ -140,7 +145,7 @@ export default function TradeForm(props: Props) {
             value={amountType}
             onChange={(e) => setAmountType(e.target.value as AmountType)}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none"
-            disabled={props.tradingClosed || kind === "SELL"}
+            disabled={tradingDisabled || kind === "SELL"}
           >
             <option value="CREDITS">Credits (buy)</option>
             <option value="SHARES">Shares</option>
@@ -159,7 +164,7 @@ export default function TradeForm(props: Props) {
             onChange={(e) => setAmount(e.target.value)}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none"
             inputMode="decimal"
-            disabled={props.tradingClosed}
+            disabled={tradingDisabled}
           />
         </label>
       </div>
@@ -194,7 +199,13 @@ export default function TradeForm(props: Props) {
         disabled={disabled}
         className="mt-3 rounded-md bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-zinc-200 disabled:opacity-50"
       >
-        {props.tradingClosed ? "Trading closed" : isSubmitting ? "Submitting…" : "Submit trade"}
+        {tradingDisabled
+          ? props.tradingDisabledReason
+            ? "Trading disabled"
+            : "Trading closed"
+          : isSubmitting
+            ? "Submitting…"
+            : "Submit trade"}
       </button>
     </div>
   );

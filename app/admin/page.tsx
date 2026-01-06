@@ -33,6 +33,23 @@ export default async function AdminPage() {
     `
   );
 
+  const suggestionsRes = await pool.query<{
+    id: string;
+    title: string;
+    details: string;
+    created_at: string;
+    username: string;
+  }>(
+    `
+      SELECT s.id, s.title, s.details, s.created_at, u.username
+      FROM suggestions s
+      JOIN users u ON u.id = s.created_by
+      WHERE s.status = 'PENDING'
+      ORDER BY s.created_at DESC
+      LIMIT 100
+    `
+  );
+
   const res = await pool.query<{
     id: string;
     title: string;
@@ -59,7 +76,16 @@ export default async function AdminPage() {
         <p className="text-sm text-zinc-300">Create, edit, and resolve markets.</p>
       </div>
 
-      <CreateMarketForm />
+      <CreateMarketForm
+        users={usersRes.rows.map((u) => ({ id: u.id, username: u.username }))}
+        suggestions={suggestionsRes.rows.map((s) => ({
+          id: s.id,
+          title: s.title,
+          details: s.details,
+          createdAt: s.created_at,
+          createdByUsername: s.username
+        }))}
+      />
 
       <AdminCreditAdjuster
         users={usersRes.rows.map((u) => ({

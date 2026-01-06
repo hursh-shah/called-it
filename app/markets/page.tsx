@@ -114,14 +114,24 @@ export default async function MarketsPage() {
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Markets</h1>
-        {user.isAdmin ? (
-          <Link
-            href="/admin"
-            className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-50 hover:bg-zinc-900"
-          >
-            Create
-          </Link>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {!user.isAdmin ? (
+            <Link
+              href="/suggestions"
+              className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-50 hover:bg-zinc-900"
+            >
+              Suggest
+            </Link>
+          ) : null}
+          {user.isAdmin ? (
+            <Link
+              href="/admin"
+              className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-50 hover:bg-zinc-900"
+            >
+              Create
+            </Link>
+          ) : null}
+        </div>
       </div>
       <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-4 text-sm text-zinc-200">
         Balance: <span className="font-medium">{formatCredits(user.balanceCents)}</span>

@@ -65,6 +65,22 @@ export default async function MarketPage({
     );
   }
 
+  const involvedRes = await pool.query<{
+    user_id: string;
+    username: string;
+  }>(
+    `
+      SELECT u.id AS user_id, u.username
+      FROM market_involved_users miu
+      JOIN users u ON u.id = miu.user_id
+      WHERE miu.market_id = $1
+      ORDER BY u.username ASC
+    `,
+    [market.id]
+  );
+  const involvedUsernames = involvedRes.rows.map((r) => r.username);
+  const isUserInvolved = involvedRes.rows.some((r) => r.user_id === user.id);
+
   const positionRes = await pool.query<{
     shares_yes: number;
     shares_no: number;
@@ -114,6 +130,9 @@ export default async function MarketPage({
   const now = Date.now();
   const closesAtMs = new Date(market.closes_at).getTime();
   const tradingClosed = market.status !== "OPEN" || now >= closesAtMs;
+  const tradingDisabledReason = isUserInvolved
+    ? "You are listed as involved in this market, so you can’t trade it."
+    : null;
   const pYes = lmsrPriceYes(market.b, market.q_yes, market.q_no);
 
   return (
@@ -176,6 +195,18 @@ export default async function MarketPage({
         </details>
       ) : null}
 
+      {involvedUsernames.length > 0 ? (
+        <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-4 text-sm text-zinc-200">
+          <div className="text-xs text-zinc-400">Users involved</div>
+          <div className="mt-1">{involvedUsernames.join(", ")}</div>
+          {isUserInvolved ? (
+            <p className="mt-2 text-xs text-zinc-400">
+              You’re involved, so trading is disabled for you.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-4">
         <h2 className="text-sm font-medium">Your position</h2>
         <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
@@ -196,6 +227,7 @@ export default async function MarketPage({
         qYes={market.q_yes}
         qNo={market.q_no}
         tradingClosed={tradingClosed || market.status === "RESOLVED"}
+        tradingDisabledReason={tradingDisabledReason}
         userBalanceCents={user.balanceCents}
         userSharesYes={position.shares_yes}
         userSharesNo={position.shares_no}
@@ -227,4 +259,3 @@ export default async function MarketPage({
     </div>
   );
 }
-
