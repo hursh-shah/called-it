@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 
 const ResolveBody = z.object({
   outcome: z.enum(["YES", "NO"]),
-  note: z.string().trim().max(2000).optional()
+  note: z.string().trim().max(2000).optional(),
+  force: z.boolean().optional()
 });
 
 export async function POST(req: Request, context: { params: { marketId: string } }) {
@@ -53,7 +54,7 @@ export async function POST(req: Request, context: { params: { marketId: string }
         { status: 400 }
       );
     }
-    if (Date.now() < new Date(market.closes_at).getTime()) {
+    if (!parsed.data.force && Date.now() < new Date(market.closes_at).getTime()) {
       await client.query("ROLLBACK");
       return NextResponse.json(
         { error: "Market must be closed before resolving." },
@@ -137,4 +138,3 @@ export async function POST(req: Request, context: { params: { marketId: string }
     client.release();
   }
 }
-
