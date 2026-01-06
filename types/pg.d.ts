@@ -9,8 +9,21 @@ declare module "pg" {
     release(): void;
   };
 
+  export type SslConfig =
+    | boolean
+    | {
+        rejectUnauthorized?: boolean;
+        ca?: string;
+        cert?: string;
+        key?: string;
+      };
+
   export type PoolConfig = {
     connectionString?: string;
+    ssl?: SslConfig;
+    max?: number;
+    idleTimeoutMillis?: number;
+    connectionTimeoutMillis?: number;
   };
 
   export class Pool {
@@ -26,4 +39,3 @@ declare module "pg" {
 
   export default pgDefault;
 }
-

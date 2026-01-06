@@ -71,10 +71,12 @@ In Supabase Dashboard → **SQL Editor** → **New query**:
 
 In Vercel Project → **Settings** → **Environment Variables** (Production + Preview):
 
-- `DATABASE_URL`: use the Postgres connection string from Supabase (prefer the **Connection Pooler** URL for serverless)
+- `DATABASE_URL`: use the Postgres connection string from Supabase (prefer the **Connection Pooler** URL for serverless); do not wrap in quotes
 - `INVITE_TOKEN`: shared with friends
 - `ADMIN_INVITE_TOKEN`: only for you
 - `MONTHLY_ALLOWANCE_CREDITS` (optional, default `100`)
+
+If your DB password contains special characters (like `@` or `#`), URL-encode it in the connection string.
 
 Then redeploy.
 

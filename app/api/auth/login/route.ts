@@ -24,6 +24,17 @@ const LoginBody = z.object({
   token: z.string().trim().min(1)
 });
 
+function normalizeSecret(value: string | undefined, name: string) {
+  if (!value) throw new Error(`Missing ${name} in environment.`);
+  const trimmed = value.trim();
+  const unquoted =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ? trimmed.slice(1, -1)
+      : trimmed;
+  return unquoted.trim();
+}
+
 function safeEqual(a: string, b: string) {
   const aBuf = Buffer.from(a);
   const bBuf = Buffer.from(b);
@@ -32,34 +43,46 @@ function safeEqual(a: string, b: string) {
 }
 
 function normalizeInvite(token: string) {
-  const userToken = process.env.INVITE_TOKEN;
-  const adminToken = process.env.ADMIN_INVITE_TOKEN;
-  if (!userToken || !adminToken) {
-    throw new Error("Missing INVITE_TOKEN or ADMIN_INVITE_TOKEN in environment.");
-  }
+  const userToken = normalizeSecret(process.env.INVITE_TOKEN, "INVITE_TOKEN");
+  const adminToken = normalizeSecret(
+    process.env.ADMIN_INVITE_TOKEN,
+    "ADMIN_INVITE_TOKEN"
+  );
   const isAdmin = safeEqual(token, adminToken);
   const isUser = safeEqual(token, userToken);
   if (!isAdmin && !isUser) return null;
   return { isAdmin };
 }
 
+function safeMessage(err: unknown) {
+  const msg = err instanceof Error ? err.message : "Internal error.";
+  if (msg.includes("postgres://") || msg.includes("postgresql://")) {
+    return "Database configuration error. Check DATABASE_URL (Postgres URI) and redeploy.";
+  }
+  return msg;
+}
+
 export async function POST(req: Request) {
   const parsed = LoginBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid request." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  const invite = normalizeInvite(parsed.data.token);
+  let invite: { isAdmin: boolean } | null = null;
+  try {
+    invite = normalizeInvite(parsed.data.token);
+  } catch (err) {
+    return NextResponse.json({ error: safeMessage(err) }, { status: 500 });
+  }
   if (!invite) {
     return NextResponse.json({ error: "Invalid invite token." }, { status: 401 });
   }
 
-  const pool = getPool();
-  const client = await pool.connect();
+  let client: Awaited<ReturnType<ReturnType<typeof getPool>["connect"]>> | null =
+    null;
   try {
+    const pool = getPool();
+    client = await pool.connect();
     await client.query("BEGIN");
 
     const existing = await client.query<{
@@ -157,12 +180,11 @@ export async function POST(req: Request) {
     });
     return res;
   } catch (err) {
-    await client.query("ROLLBACK");
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Login failed." },
-      { status: 500 }
-    );
+    if (client) {
+      await client.query("ROLLBACK").catch(() => undefined);
+    }
+    return NextResponse.json({ error: safeMessage(err) }, { status: 500 });
   } finally {
-    client.release();
+    client?.release();
   }
 }

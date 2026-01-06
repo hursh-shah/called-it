@@ -20,8 +20,20 @@ export default function LoginForm({ initialToken }: { initialToken?: string }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ username, token })
       });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Login failed");
+      const text = await res.text();
+      const data = (() => {
+        try {
+          return JSON.parse(text) as { error?: string };
+        } catch {
+          return null;
+        }
+      })();
+      if (!res.ok) {
+        throw new Error(
+          data?.error ??
+            `Login failed (HTTP ${res.status}). Check server logs.`
+        );
+      }
       router.replace("/markets");
       router.refresh();
     } catch (err) {
@@ -69,4 +81,3 @@ export default function LoginForm({ initialToken }: { initialToken?: string }) {
     </form>
   );
 }
-
