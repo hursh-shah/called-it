@@ -90,9 +90,10 @@ export async function POST(req: Request) {
       is_admin: boolean;
       balance_cents: string;
       last_allowance_ym: number | null;
+      last_allowance_cents: string | null;
     }>(
       `
-        SELECT id, is_admin, balance_cents, last_allowance_ym
+        SELECT id, is_admin, balance_cents, last_allowance_ym, last_allowance_cents
         FROM users
         WHERE username = $1
         FOR UPDATE
@@ -104,6 +105,7 @@ export async function POST(req: Request) {
     let isAdmin: boolean;
     let balanceCents: number;
     let lastAllowanceYm: number | null;
+    let lastAllowanceCents: number | null;
 
     if (existing.rowCount === 0) {
       const inserted = await client.query<{
@@ -111,11 +113,12 @@ export async function POST(req: Request) {
         is_admin: boolean;
         balance_cents: string;
         last_allowance_ym: number | null;
+        last_allowance_cents: string | null;
       }>(
         `
           INSERT INTO users (username, is_admin)
           VALUES ($1, $2)
-          RETURNING id, is_admin, balance_cents, last_allowance_ym
+          RETURNING id, is_admin, balance_cents, last_allowance_ym, last_allowance_cents
         `,
         [parsed.data.username, invite.isAdmin]
       );
@@ -123,11 +126,17 @@ export async function POST(req: Request) {
       isAdmin = inserted.rows[0].is_admin;
       balanceCents = Number(inserted.rows[0].balance_cents);
       lastAllowanceYm = inserted.rows[0].last_allowance_ym;
+      lastAllowanceCents = inserted.rows[0].last_allowance_cents
+        ? Number(inserted.rows[0].last_allowance_cents)
+        : null;
     } else {
       userId = existing.rows[0].id;
       isAdmin = existing.rows[0].is_admin;
       balanceCents = Number(existing.rows[0].balance_cents);
       lastAllowanceYm = existing.rows[0].last_allowance_ym;
+      lastAllowanceCents = existing.rows[0].last_allowance_cents
+        ? Number(existing.rows[0].last_allowance_cents)
+        : null;
       if (invite.isAdmin && !isAdmin) {
         const updated = await client.query<{ is_admin: boolean }>(
           "UPDATE users SET is_admin = true WHERE id = $1 RETURNING is_admin",
@@ -137,16 +146,17 @@ export async function POST(req: Request) {
       }
     }
 
-    const { nowYm, monthsToGrant } = await grantMonthlyAllowanceTx(client, {
+    const { nowYm, monthsToGrant, allowanceCents, adjustmentCents } =
+      await grantMonthlyAllowanceTx(client, {
       id: userId,
-      lastAllowanceYm
+      lastAllowanceYm,
+      lastAllowanceCents
     });
+    const deltaCents = allowanceCents + adjustmentCents;
+    if (deltaCents !== 0) {
+      balanceCents += deltaCents;
+    }
     if (monthsToGrant > 0) {
-      const updated = await client.query<{ balance_cents: string }>(
-        "SELECT balance_cents FROM users WHERE id = $1",
-        [userId]
-      );
-      balanceCents = Number(updated.rows[0].balance_cents);
       lastAllowanceYm = nowYm;
     }
 

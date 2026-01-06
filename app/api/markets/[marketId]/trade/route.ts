@@ -91,9 +91,10 @@ export async function POST(req: Request, context: { params: { marketId: string }
     const userRowRes = await client.query<{
       balance_cents: string;
       last_allowance_ym: number | null;
+      last_allowance_cents: string | null;
     }>(
       `
-        SELECT balance_cents, last_allowance_ym
+        SELECT balance_cents, last_allowance_ym, last_allowance_cents
         FROM users
         WHERE id = $1
         FOR UPDATE
@@ -108,7 +109,10 @@ export async function POST(req: Request, context: { params: { marketId: string }
 
     await grantMonthlyAllowanceTx(client, {
       id: user.id,
-      lastAllowanceYm: userRow.last_allowance_ym
+      lastAllowanceYm: userRow.last_allowance_ym,
+      lastAllowanceCents: userRow.last_allowance_cents
+        ? Number(userRow.last_allowance_cents)
+        : null
     });
 
     const refreshedUser = await client.query<{ balance_cents: string }>(

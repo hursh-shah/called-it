@@ -38,25 +38,107 @@ export function currentYm(now = new Date()) {
 
 export async function grantMonthlyAllowanceTx(
   client: PoolClient,
-  user: { id: string; lastAllowanceYm: number | null }
+  user: { id: string; lastAllowanceYm: number | null; lastAllowanceCents: number | null }
 ) {
   const nowYm = currentYm();
+  const monthlyAllowanceCents = getMonthlyAllowanceCents();
+
   const monthsToGrant =
     user.lastAllowanceYm == null ? 1 : Math.max(0, nowYm - user.lastAllowanceYm);
+
   if (monthsToGrant <= 0) {
-    return { nowYm, monthsToGrant, allowanceCents: 0 };
+    if (user.lastAllowanceYm !== nowYm) {
+      return { nowYm, monthsToGrant: 0, allowanceCents: 0, adjustmentCents: 0 };
+    }
+
+    let appliedCents = user.lastAllowanceCents;
+
+    if (appliedCents == null) {
+      const lastRes = await client.query<{ amount_cents: string; note: string }>(
+        `
+          SELECT amount_cents, note
+          FROM ledger_entries
+          WHERE user_id = $1 AND type = 'ALLOWANCE' AND note LIKE 'Monthly allowance x%'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [user.id]
+      );
+      const last = lastRes.rows[0];
+      if (last) {
+        const match = last.note.match(/Monthly allowance x(\d+)/);
+        const months = match ? Number(match[1]) : 1;
+        const totalCents = Number(last.amount_cents);
+        if (Number.isFinite(months) && months > 0 && Number.isFinite(totalCents)) {
+          appliedCents = Math.trunc(totalCents / months);
+        }
+      }
+    }
+
+    if (appliedCents == null) {
+      await client.query(
+        `
+          UPDATE users
+          SET last_allowance_cents = $1
+          WHERE id = $2 AND last_allowance_ym = $3 AND last_allowance_cents IS NULL
+        `,
+        [monthlyAllowanceCents, user.id, nowYm]
+      );
+      return { nowYm, monthsToGrant: 0, allowanceCents: 0, adjustmentCents: 0 };
+    }
+
+    if (appliedCents === monthlyAllowanceCents) {
+      if (user.lastAllowanceCents == null) {
+        await client.query(
+          `
+            UPDATE users
+            SET last_allowance_cents = $1
+            WHERE id = $2 AND last_allowance_ym = $3 AND last_allowance_cents IS NULL
+          `,
+          [monthlyAllowanceCents, user.id, nowYm]
+        );
+      }
+      return { nowYm, monthsToGrant: 0, allowanceCents: 0, adjustmentCents: 0 };
+    }
+
+    const adjustmentCents = monthlyAllowanceCents - appliedCents;
+
+    await client.query(
+      `
+        UPDATE users
+        SET
+          balance_cents = balance_cents + $1,
+          last_allowance_cents = $2
+        WHERE id = $3
+      `,
+      [adjustmentCents, monthlyAllowanceCents, user.id]
+    );
+    await client.query(
+      `
+        INSERT INTO ledger_entries (user_id, type, amount_cents, note)
+        VALUES ($1, 'ALLOWANCE', $2, $3)
+      `,
+      [
+        user.id,
+        adjustmentCents,
+        `Monthly allowance adjustment (${appliedCents / 100} → ${monthlyAllowanceCents / 100})`
+      ]
+    );
+
+    return { nowYm, monthsToGrant: 0, allowanceCents: 0, adjustmentCents };
   }
 
-  const allowanceCents = monthsToGrant * getMonthlyAllowanceCents();
+  const allowanceCents = monthsToGrant * monthlyAllowanceCents;
   await client.query(
     `
       UPDATE users
       SET
         balance_cents = balance_cents + $1,
-        last_allowance_ym = $2
-      WHERE id = $3
+        last_allowance_ym = $2,
+        last_allowance_cents = $3
+      WHERE id = $4
     `,
-    [allowanceCents, nowYm, user.id]
+    [allowanceCents, nowYm, monthlyAllowanceCents, user.id]
   );
   await client.query(
     `
@@ -66,7 +148,7 @@ export async function grantMonthlyAllowanceTx(
     [user.id, allowanceCents, `Monthly allowance x${monthsToGrant}`]
   );
 
-  return { nowYm, monthsToGrant, allowanceCents };
+  return { nowYm, monthsToGrant, allowanceCents, adjustmentCents: 0 };
 }
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {

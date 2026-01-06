@@ -64,8 +64,9 @@ This app uses a direct Postgres connection via `DATABASE_URL` (it does not use t
 
 In Supabase Dashboard → **SQL Editor** → **New query**:
 
-- Open `db/migrations/001_init.sql` and paste its *SQL contents* (the SQL editor can’t run a file path)
-- Run it once
+- Run migrations in order (paste the *SQL contents*; the SQL editor can’t run a file path):
+  - `db/migrations/001_init.sql`
+  - `db/migrations/002_allowance_rate.sql`
 
 ### 2) Set Vercel environment variables
 
