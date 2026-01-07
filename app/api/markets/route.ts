@@ -187,7 +187,7 @@ export async function POST(req: Request) {
         `
           UPDATE suggestions
           SET status = 'USED', market_id = $1, used_at = now()
-          WHERE id = $2 AND status = 'PENDING'
+          WHERE id = $2 AND status IN ('PENDING', 'USED') AND market_id IS NULL
           RETURNING id
         `,
         [market.id, parsed.data.suggestionId]

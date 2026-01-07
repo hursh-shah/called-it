@@ -8,7 +8,11 @@ import { getPool } from "../../lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams
+}: {
+  searchParams?: { suggestionId?: string | string[] };
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!user.isAdmin) {
@@ -33,19 +37,25 @@ export default async function AdminPage() {
     `
   );
 
+  const initialSuggestionIdRaw = searchParams?.suggestionId;
+  const initialSuggestionId = Array.isArray(initialSuggestionIdRaw)
+    ? initialSuggestionIdRaw[0]
+    : initialSuggestionIdRaw;
+
   const suggestionsRes = await pool.query<{
     id: string;
     title: string;
     details: string;
+    status: "PENDING" | "USED" | "REJECTED";
     created_at: string;
     username: string;
   }>(
     `
-      SELECT s.id, s.title, s.details, s.created_at, u.username
+      SELECT s.id, s.title, s.details, s.status, s.created_at, u.username
       FROM suggestions s
       JOIN users u ON u.id = s.created_by
-      WHERE s.status = 'PENDING'
-      ORDER BY s.created_at DESC
+      WHERE s.market_id IS NULL AND s.status IN ('PENDING', 'USED')
+      ORDER BY (s.status = 'PENDING') DESC, s.created_at DESC
       LIMIT 100
     `
   );
@@ -82,9 +92,11 @@ export default async function AdminPage() {
           id: s.id,
           title: s.title,
           details: s.details,
+          status: s.status,
           createdAt: s.created_at,
           createdByUsername: s.username
         }))}
+        initialSuggestionId={initialSuggestionId}
       />
 
       <AdminCreditAdjuster

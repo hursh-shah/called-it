@@ -1,29 +1,32 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type UserOption = { id: string; username: string };
 type SuggestionOption = {
   id: string;
   title: string;
   details: string;
+  status: "PENDING" | "USED" | "REJECTED";
   createdAt: string;
   createdByUsername: string;
 };
 
 export default function CreateMarketForm({
   users,
-  suggestions
+  suggestions,
+  initialSuggestionId
 }: {
   users: UserOption[];
   suggestions?: SuggestionOption[];
+  initialSuggestionId?: string;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [rules, setRules] = useState("");
-  const [suggestionId, setSuggestionId] = useState("");
+  const [suggestionId, setSuggestionId] = useState(initialSuggestionId ?? "");
   const [involvedUserIds, setInvolvedUserIds] = useState<string[]>([]);
   const [b, setB] = useState("1000");
   const [initialProbability, setInitialProbability] = useState("0.5");
@@ -37,6 +40,17 @@ export default function CreateMarketForm({
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
     );
   }
+
+  useEffect(() => {
+    if (!initialSuggestionId || !suggestions || suggestions.length === 0) return;
+    const selected = suggestions.find((s) => s.id === initialSuggestionId);
+    if (!selected) return;
+    setSuggestionId(initialSuggestionId);
+    setTitle(selected.title);
+    if (selected.details) {
+      setRules(selected.details);
+    }
+  }, [initialSuggestionId, suggestions]);
 
   async function submit() {
     setError(null);
@@ -94,7 +108,8 @@ export default function CreateMarketForm({
               <option value="">None</option>
               {suggestions.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.title} ({s.createdByUsername})
+                  {s.title} ({s.createdByUsername}
+                  {s.status === "USED" ? ", accepted" : ", pending"})
                 </option>
               ))}
             </select>

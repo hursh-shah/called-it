@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import AdminSuggestionActions from "../../components/AdminSuggestionActions";
 import SuggestionForm from "../../components/SuggestionForm";
 import { getCurrentUser } from "../../lib/auth";
 import { getPool } from "../../lib/db";
@@ -97,7 +98,7 @@ export default async function SuggestionsPage() {
                     ) : null}
                     {new Date(s.created_at).toLocaleString()}
                     {" • "}
-                    {s.status}
+                    {s.status === "USED" && !s.market_id ? "ACCEPTED" : s.status}
                     {s.market_id ? (
                       <>
                         {" • "}
@@ -111,6 +112,9 @@ export default async function SuggestionsPage() {
                     ) : null}
                   </div>
                 </div>
+                {user.isAdmin && s.status === "PENDING" ? (
+                  <AdminSuggestionActions suggestionId={s.id} />
+                ) : null}
               </div>
             </li>
           ))}
@@ -122,4 +126,3 @@ export default async function SuggestionsPage() {
     </div>
   );
 }
-
