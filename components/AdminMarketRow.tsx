@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  formatPacificDateTime,
+  pacificDatetimeLocalToIso,
+  toPacificDatetimeLocalValue
+} from "../lib/time";
+
 type Props = {
   marketId: string;
   title: string;
@@ -15,18 +21,6 @@ type Props = {
   outcome: "YES" | "NO" | null;
 };
 
-function toDatetimeLocalValue(iso: string) {
-  const date = new Date(iso);
-  if (!Number.isFinite(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  const mm = pad(date.getMonth() + 1);
-  const dd = pad(date.getDate());
-  const hh = pad(date.getHours());
-  const min = pad(date.getMinutes());
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-}
-
 export default function AdminMarketRow(props: Props) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -36,8 +30,10 @@ export default function AdminMarketRow(props: Props) {
   const [title, setTitle] = useState(props.title);
   const [description, setDescription] = useState(props.description);
   const [rules, setRules] = useState(props.rules);
-  const [closesAt, setClosesAt] = useState(toDatetimeLocalValue(props.closesAt));
-  const [resolvesAt, setResolvesAt] = useState(toDatetimeLocalValue(props.resolvesAt));
+  const [closesAt, setClosesAt] = useState(toPacificDatetimeLocalValue(props.closesAt));
+  const [resolvesAt, setResolvesAt] = useState(
+    toPacificDatetimeLocalValue(props.resolvesAt)
+  );
 
   const [forceResolve, setForceResolve] = useState(false);
 
@@ -46,8 +42,8 @@ export default function AdminMarketRow(props: Props) {
     setTitle(props.title);
     setDescription(props.description);
     setRules(props.rules);
-    setClosesAt(toDatetimeLocalValue(props.closesAt));
-    setResolvesAt(toDatetimeLocalValue(props.resolvesAt));
+    setClosesAt(toPacificDatetimeLocalValue(props.closesAt));
+    setResolvesAt(toPacificDatetimeLocalValue(props.resolvesAt));
   }, [
     props.title,
     props.description,
@@ -83,8 +79,8 @@ export default function AdminMarketRow(props: Props) {
         title,
         description,
         rules,
-        closesAt: new Date(closesAt).toISOString(),
-        resolvesAt: new Date(resolvesAt).toISOString()
+        closesAt: pacificDatetimeLocalToIso(closesAt),
+        resolvesAt: pacificDatetimeLocalToIso(resolvesAt)
       });
       setIsEditing(false);
       router.refresh();
@@ -138,8 +134,8 @@ export default function AdminMarketRow(props: Props) {
             {props.title}
           </Link>
           <div className="text-xs text-zinc-500">
-            closes {new Date(props.closesAt).toLocaleString()} • resolves{" "}
-            {new Date(props.resolvesAt).toLocaleString()} • {props.status}
+            closes {formatPacificDateTime(props.closesAt)} • resolves{" "}
+            {formatPacificDateTime(props.resolvesAt)} • {props.status}
             {props.outcome ? ` (${props.outcome})` : ""}
           </div>
         </div>
@@ -227,7 +223,7 @@ export default function AdminMarketRow(props: Props) {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1 text-sm">
-              <span className="text-xs text-zinc-400">Closes at</span>
+              <span className="text-xs text-zinc-400">Closes at (Pacific)</span>
               <input
                 value={closesAt}
                 onChange={(e) => setClosesAt(e.target.value)}
@@ -237,7 +233,7 @@ export default function AdminMarketRow(props: Props) {
               />
             </label>
             <label className="block space-y-1 text-sm">
-              <span className="text-xs text-zinc-400">Resolves at</span>
+              <span className="text-xs text-zinc-400">Resolves at (Pacific)</span>
               <input
                 value={resolvesAt}
                 onChange={(e) => setResolvesAt(e.target.value)}

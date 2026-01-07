@@ -6,6 +6,7 @@ import { getCurrentUser } from "../../../lib/auth";
 import { getPool } from "../../../lib/db";
 import { lmsrPriceYes } from "../../../lib/lmsr";
 import { formatCredits } from "../../../lib/money";
+import { formatPacificDateTime } from "../../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -176,11 +177,11 @@ export default async function MarketPage({
             Balance: <span className="font-medium">{formatCredits(user.balanceCents)}</span>
           </div>
           <div className="text-zinc-400">
-            Closes {new Date(market.closes_at).toLocaleString()}
+            Closes {formatPacificDateTime(market.closes_at)}
           </div>
         </div>
         <div className="mt-2 text-zinc-400">
-          Resolves {new Date(market.resolves_at).toLocaleString()}
+          Resolves {formatPacificDateTime(market.resolves_at)}
         </div>
       </div>
 
@@ -239,7 +240,7 @@ export default async function MarketPage({
           {tradesRes.rows.map((t) => (
             <li key={t.id} className="flex items-center justify-between gap-3">
               <span className="text-zinc-400">
-                {new Date(t.created_at).toLocaleString()}
+                {formatPacificDateTime(t.created_at)}
               </span>
               <span className="flex-1">
                 <span className="font-medium text-zinc-200">{t.username}</span>{" "}

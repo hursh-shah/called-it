@@ -5,6 +5,7 @@ import AdminSuggestionActions from "../../components/AdminSuggestionActions";
 import SuggestionForm from "../../components/SuggestionForm";
 import { getCurrentUser } from "../../lib/auth";
 import { getPool } from "../../lib/db";
+import { formatPacificDateTime } from "../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +97,7 @@ export default async function SuggestionsPage() {
                         {s.username} •{" "}
                       </>
                     ) : null}
-                    {new Date(s.created_at).toLocaleString()}
+                    {formatPacificDateTime(s.created_at)}
                     {" • "}
                     {s.status === "USED" && !s.market_id ? "ACCEPTED" : s.status}
                     {s.market_id ? (

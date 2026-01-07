@@ -5,6 +5,7 @@ import { getCurrentUser } from "../../lib/auth";
 import { getPool } from "../../lib/db";
 import { lmsrPriceYes } from "../../lib/lmsr";
 import { formatCredits } from "../../lib/money";
+import { formatPacificDateTime } from "../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -163,7 +164,7 @@ export default async function MarketsPage() {
                   ) : null}
                   <p className="text-xs text-zinc-400">
                     {statusLabel} • closes{" "}
-                    {new Date(m.closes_at).toLocaleString()}
+                    {formatPacificDateTime(m.closes_at)}
                   </p>
                 </div>
                 <div className="flex flex-col items-end text-right">

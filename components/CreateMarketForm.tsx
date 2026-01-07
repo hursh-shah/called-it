@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { pacificDatetimeLocalToIso } from "../lib/time";
+
 type UserOption = { id: string; username: string };
 type SuggestionOption = {
   id: string;
@@ -67,8 +69,8 @@ export default function CreateMarketForm({
           suggestionId: suggestionId || undefined,
           b: Number(b),
           initialProbability: Number(initialProbability),
-          closesAt: new Date(closesAt).toISOString(),
-          resolvesAt: new Date(resolvesAt).toISOString()
+          closesAt: pacificDatetimeLocalToIso(closesAt),
+          resolvesAt: pacificDatetimeLocalToIso(resolvesAt)
         })
       });
       const data = (await res.json()) as { error?: string; market?: { id: string } };
@@ -194,7 +196,7 @@ export default function CreateMarketForm({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1 text-sm">
-            <span className="text-xs text-zinc-400">Closes at</span>
+            <span className="text-xs text-zinc-400">Closes at (Pacific)</span>
             <input
               value={closesAt}
               onChange={(e) => setClosesAt(e.target.value)}
@@ -204,7 +206,7 @@ export default function CreateMarketForm({
             />
           </label>
           <label className="block space-y-1 text-sm">
-            <span className="text-xs text-zinc-400">Resolves at</span>
+            <span className="text-xs text-zinc-400">Resolves at (Pacific)</span>
             <input
               value={resolvesAt}
               onChange={(e) => setResolvesAt(e.target.value)}

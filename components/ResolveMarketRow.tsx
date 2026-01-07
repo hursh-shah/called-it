@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { formatPacificDateTime } from "../lib/time";
+
 type Props = {
   marketId: string;
   title: string;
@@ -47,7 +49,7 @@ export default function ResolveMarketRow(props: Props) {
             {props.title}
           </Link>
           <div className="text-xs text-zinc-500">
-            closes {new Date(props.closesAt).toLocaleString()} • {props.status}
+            closes {formatPacificDateTime(props.closesAt)} • {props.status}
             {props.outcome ? ` (${props.outcome})` : ""}
           </div>
         </div>
@@ -80,4 +82,3 @@ export default function ResolveMarketRow(props: Props) {
     </div>
   );
 }
-
