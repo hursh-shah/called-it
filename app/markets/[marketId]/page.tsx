@@ -69,9 +69,10 @@ export default async function MarketPage({
   const involvedRes = await pool.query<{
     user_id: string;
     username: string;
+    ban: "YES" | "NO" | "ALL";
   }>(
     `
-      SELECT u.id AS user_id, u.username
+      SELECT u.id AS user_id, u.username, miu.ban
       FROM market_involved_users miu
       JOIN users u ON u.id = miu.user_id
       WHERE miu.market_id = $1
@@ -79,8 +80,12 @@ export default async function MarketPage({
     `,
     [market.id]
   );
-  const involvedUsernames = involvedRes.rows.map((r) => r.username);
-  const isUserInvolved = involvedRes.rows.some((r) => r.user_id === user.id);
+  const involvedUserLabels = involvedRes.rows.map((r) => {
+    const banLabel = r.ban === "ALL" ? "no trading" : `no ${r.ban}`;
+    return `${r.username} (${banLabel})`;
+  });
+  const tradeBan = involvedRes.rows.find((r) => r.user_id === user.id)?.ban ?? null;
+  const isUserInvolved = tradeBan != null;
 
   const positionRes = await pool.query<{
     shares_yes: number;
@@ -131,9 +136,6 @@ export default async function MarketPage({
   const now = Date.now();
   const closesAtMs = new Date(market.closes_at).getTime();
   const tradingClosed = market.status !== "OPEN" || now >= closesAtMs;
-  const tradingDisabledReason = isUserInvolved
-    ? "You are listed as involved in this market, so you can’t trade it."
-    : null;
   const pYes = lmsrPriceYes(market.b, market.q_yes, market.q_no);
 
   return (
@@ -196,13 +198,15 @@ export default async function MarketPage({
         </details>
       ) : null}
 
-      {involvedUsernames.length > 0 ? (
+      {involvedUserLabels.length > 0 ? (
         <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-4 text-sm text-zinc-200">
           <div className="text-xs text-zinc-400">Users involved</div>
-          <div className="mt-1">{involvedUsernames.join(", ")}</div>
+          <div className="mt-1">{involvedUserLabels.join(", ")}</div>
           {isUserInvolved ? (
             <p className="mt-2 text-xs text-zinc-400">
-              You’re involved, so trading is disabled for you.
+              {tradeBan === "ALL"
+                ? "You’re involved, so trading is disabled for you."
+                : `You’re involved, so you can’t trade ${tradeBan} in this market.`}
             </p>
           ) : null}
         </div>
@@ -228,7 +232,7 @@ export default async function MarketPage({
         qYes={market.q_yes}
         qNo={market.q_no}
         tradingClosed={tradingClosed || market.status === "RESOLVED"}
-        tradingDisabledReason={tradingDisabledReason}
+        tradeBan={tradeBan}
         userBalanceCents={user.balanceCents}
         userSharesYes={position.shares_yes}
         userSharesNo={position.shares_no}

@@ -79,6 +79,30 @@ export default async function AdminPage({
     `
   );
 
+  const marketIds = res.rows.map((m) => m.id);
+  const bansRes =
+    marketIds.length > 0
+      ? await pool.query<{
+          market_id: string;
+          user_id: string;
+          ban: "YES" | "NO" | "ALL";
+        }>(
+          `
+            SELECT market_id, user_id, ban
+            FROM market_involved_users
+            WHERE market_id = ANY($1::uuid[])
+          `,
+          [marketIds]
+        )
+      : { rows: [] as Array<{ market_id: string; user_id: string; ban: "YES" | "NO" | "ALL" }> };
+
+  const bansByMarketId = new Map<string, Array<{ userId: string; ban: "YES" | "NO" | "ALL" }>>();
+  for (const row of bansRes.rows) {
+    const current = bansByMarketId.get(row.market_id) ?? [];
+    current.push({ userId: row.user_id, ban: row.ban });
+    bansByMarketId.set(row.market_id, current);
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -121,6 +145,8 @@ export default async function AdminPage({
               resolvesAt={m.resolves_at}
               status={m.status}
               outcome={m.outcome}
+              users={usersRes.rows.map((u) => ({ id: u.id, username: u.username }))}
+              involvedUserBans={bansByMarketId.get(m.id) ?? []}
             />
           ))}
           {res.rowCount === 0 ? (

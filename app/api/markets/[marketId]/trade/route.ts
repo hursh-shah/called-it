@@ -153,19 +153,25 @@ export async function POST(req: Request, context: { params: { marketId: string }
       );
     }
 
-    const involvedRes = await client.query(
+    const banRes = await client.query<{ ban: "YES" | "NO" | "ALL" }>(
       `
-        SELECT 1
+        SELECT ban
         FROM market_involved_users
         WHERE market_id = $1 AND user_id = $2
         LIMIT 1
       `,
       [market.id, user.id]
     );
-    if (involvedRes.rowCount > 0) {
+    const tradeBan = banRes.rows[0]?.ban ?? null;
+    if (tradeBan === "ALL" || tradeBan === parsed.data.side) {
       await client.query("ROLLBACK");
       return NextResponse.json(
-        { error: "You are listed as involved in this market and cannot trade it." },
+        {
+          error:
+            tradeBan === "ALL"
+              ? "You are restricted from trading this market."
+              : `You are restricted from trading ${parsed.data.side} in this market.`
+        },
         { status: 403 }
       );
     }

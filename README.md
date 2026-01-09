@@ -67,6 +67,8 @@ In Supabase Dashboard → **SQL Editor** → **New query**:
 - Run migrations in order (paste the *SQL contents*; the SQL editor can’t run a file path):
   - `db/migrations/001_init.sql`
   - `db/migrations/002_allowance_rate.sql`
+  - `db/migrations/003_suggestions_and_involved_users.sql`
+  - `db/migrations/004_market_trade_bans.sql`
 
 ### 2) Set Vercel environment variables
 

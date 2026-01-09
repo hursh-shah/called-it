@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { lmsrPriceYes, lmsrTradeCost, type Side } from "../lib/lmsr";
 import { formatCredits } from "../lib/money";
@@ -12,7 +12,7 @@ type Props = {
   qYes: number;
   qNo: number;
   tradingClosed: boolean;
-  tradingDisabledReason?: string | null;
+  tradeBan?: "YES" | "NO" | "ALL" | null;
   userBalanceCents: number;
   userSharesYes: number;
   userSharesNo: number;
@@ -33,14 +33,27 @@ export default function TradeForm(props: Props) {
   const parsedAmount = Number(amount);
   const amountNumber = Number.isFinite(parsedAmount) ? parsedAmount : 0;
 
+  const isFullyBanned = props.tradeBan === "ALL";
+  const isSideBanned = props.tradeBan != null && props.tradeBan !== "ALL" && props.tradeBan === side;
+
+  useEffect(() => {
+    if (props.tradeBan == null || props.tradeBan === "ALL") return;
+    if (props.tradeBan === side) {
+      setSide(side === "YES" ? "NO" : "YES");
+    }
+  }, [props.tradeBan, side]);
+
   const preview = useMemo(() => {
     const b = props.b;
     const qYes = props.qYes;
     const qNo = props.qNo;
     const priceYes = lmsrPriceYes(b, qYes, qNo);
 
-    if (props.tradingDisabledReason) {
-      return { priceYes, detail: props.tradingDisabledReason };
+    if (props.tradeBan === "ALL") {
+      return { priceYes, detail: "You’re restricted from trading this market." };
+    }
+    if (props.tradeBan === side) {
+      return { priceYes, detail: `You can’t trade ${side} in this market.` };
     }
     if (props.tradingClosed) return { priceYes, detail: "Trading is closed." };
     if (amountNumber <= 0) return { priceYes, detail: "Enter an amount." };
@@ -97,7 +110,7 @@ export default function TradeForm(props: Props) {
   }
 
   const maxSellShares = side === "YES" ? props.userSharesYes : props.userSharesNo;
-  const tradingDisabled = props.tradingClosed || Boolean(props.tradingDisabledReason);
+  const tradingDisabled = props.tradingClosed || isFullyBanned || isSideBanned;
   const disabled =
     tradingDisabled ||
     isSubmitting ||
@@ -114,10 +127,14 @@ export default function TradeForm(props: Props) {
             value={side}
             onChange={(e) => setSide(e.target.value as Side)}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none"
-            disabled={tradingDisabled}
+            disabled={props.tradingClosed || isFullyBanned}
           >
-            <option value="YES">YES</option>
-            <option value="NO">NO</option>
+            <option value="YES" disabled={props.tradeBan === "YES" || isFullyBanned}>
+              YES
+            </option>
+            <option value="NO" disabled={props.tradeBan === "NO" || isFullyBanned}>
+              NO
+            </option>
           </select>
         </label>
         <label className="block space-y-1 text-sm">
@@ -130,7 +147,7 @@ export default function TradeForm(props: Props) {
               if (nextKind === "SELL") setAmountType("SHARES");
             }}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none"
-            disabled={tradingDisabled}
+            disabled={props.tradingClosed || isFullyBanned}
           >
             <option value="BUY">Buy</option>
             <option value="SELL">Sell</option>
@@ -145,7 +162,7 @@ export default function TradeForm(props: Props) {
             value={amountType}
             onChange={(e) => setAmountType(e.target.value as AmountType)}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none"
-            disabled={tradingDisabled || kind === "SELL"}
+            disabled={props.tradingClosed || isFullyBanned || kind === "SELL"}
           >
             <option value="CREDITS">Credits (buy)</option>
             <option value="SHARES">Shares</option>
@@ -164,7 +181,7 @@ export default function TradeForm(props: Props) {
             onChange={(e) => setAmount(e.target.value)}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none"
             inputMode="decimal"
-            disabled={tradingDisabled}
+            disabled={props.tradingClosed || isFullyBanned}
           />
         </label>
       </div>
@@ -199,13 +216,13 @@ export default function TradeForm(props: Props) {
         disabled={disabled}
         className="mt-3 rounded-md bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-zinc-200 disabled:opacity-50"
       >
-        {tradingDisabled
-          ? props.tradingDisabledReason
+        {props.tradingClosed
+          ? "Trading closed"
+          : isFullyBanned || isSideBanned
             ? "Trading disabled"
-            : "Trading closed"
-          : isSubmitting
-            ? "Submitting…"
-            : "Submit trade"}
+            : isSubmitting
+              ? "Submitting…"
+              : "Submit trade"}
       </button>
     </div>
   );

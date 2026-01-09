@@ -10,6 +10,10 @@ import {
   toPacificDatetimeLocalValue
 } from "../lib/time";
 
+type TradeBan = "YES" | "NO" | "ALL";
+type BanOption = TradeBan | "NONE";
+type UserOption = { id: string; username: string };
+
 type Props = {
   marketId: string;
   title: string;
@@ -19,6 +23,8 @@ type Props = {
   resolvesAt: string;
   status: "OPEN" | "CLOSED" | "RESOLVED";
   outcome: "YES" | "NO" | null;
+  users: UserOption[];
+  involvedUserBans: Array<{ userId: string; ban: TradeBan }>;
 };
 
 export default function AdminMarketRow(props: Props) {
@@ -35,6 +41,16 @@ export default function AdminMarketRow(props: Props) {
     toPacificDatetimeLocalValue(props.resolvesAt)
   );
 
+  const initialBanByUserId = useMemo(() => {
+    const next: Record<string, TradeBan> = {};
+    for (const row of props.involvedUserBans) {
+      next[row.userId] = row.ban;
+    }
+    return next;
+  }, [props.involvedUserBans]);
+
+  const [banByUserId, setBanByUserId] = useState<Record<string, TradeBan>>(initialBanByUserId);
+
   const [forceResolve, setForceResolve] = useState(false);
 
   useEffect(() => {
@@ -44,12 +60,14 @@ export default function AdminMarketRow(props: Props) {
     setRules(props.rules);
     setClosesAt(toPacificDatetimeLocalValue(props.closesAt));
     setResolvesAt(toPacificDatetimeLocalValue(props.resolvesAt));
+    setBanByUserId(initialBanByUserId);
   }, [
     props.title,
     props.description,
     props.rules,
     props.closesAt,
     props.resolvesAt,
+    initialBanByUserId,
     isEditing
   ]);
 
@@ -71,16 +89,33 @@ export default function AdminMarketRow(props: Props) {
     }
   }
 
+  function setUserBan(userId: string, ban: BanOption) {
+    setBanByUserId((prev) => {
+      const next = { ...prev };
+      if (ban === "NONE") {
+        delete next[userId];
+        return next;
+      }
+      next[userId] = ban;
+      return next;
+    });
+  }
+
   async function saveEdits() {
     setError(null);
     setIsSubmitting(true);
     try {
+      const involvedUserBans = Object.keys(banByUserId).map((userId) => ({
+        userId,
+        ban: banByUserId[userId]
+      }));
       await patchMarket({
         title,
         description,
         rules,
         closesAt: pacificDatetimeLocalToIso(closesAt),
-        resolvesAt: pacificDatetimeLocalToIso(resolvesAt)
+        resolvesAt: pacificDatetimeLocalToIso(resolvesAt),
+        involvedUserBans
       });
       setIsEditing(false);
       router.refresh();
@@ -242,6 +277,44 @@ export default function AdminMarketRow(props: Props) {
                 required
               />
             </label>
+          </div>
+
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs text-zinc-400">Trade restrictions</div>
+              <button
+                type="button"
+                onClick={() => setBanByUserId({})}
+                disabled={isSubmitting}
+                className="rounded-md border border-zinc-700 px-2 py-1 text-xs font-medium hover:bg-zinc-900 disabled:opacity-50"
+              >
+                Clear
+              </button>
+            </div>
+            <div className="mt-2 grid max-h-56 gap-2 overflow-auto sm:grid-cols-2">
+              {props.users.map((u) => (
+                <div key={u.id} className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-zinc-200">{u.username}</span>
+                  <select
+                    value={banByUserId[u.id] ?? "NONE"}
+                    onChange={(e) => setUserBan(u.id, e.target.value as BanOption)}
+                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs outline-none"
+                    disabled={isSubmitting}
+                  >
+                    <option value="NONE">Can trade</option>
+                    <option value="NO">Ban NO</option>
+                    <option value="YES">Ban YES</option>
+                    <option value="ALL">Ban all</option>
+                  </select>
+                </div>
+              ))}
+              {props.users.length === 0 ? (
+                <p className="text-xs text-zinc-500">No users found.</p>
+              ) : null}
+            </div>
+            <p className="mt-2 text-xs text-zinc-500">
+              Use this for anyone directly involved so they can’t bet in the wrong direction (or at all).
+            </p>
           </div>
 
           <div className="flex items-center justify-end gap-2">
