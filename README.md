@@ -2,7 +2,7 @@
 
 A credits-only, small-group prediction market using an LMSR automated market maker (AMM).
 
-## Features (current MVP)
+## Features (current)
 
 - Invite-token login (no OAuth)
 - Monthly credit allowance (default: 100 credits/month)
