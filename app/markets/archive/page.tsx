@@ -49,14 +49,14 @@ export default async function ArchivePage() {
     `
   );
 
-  // Get biggest winners for each resolved market
+  // Get biggest winners for each resolved market (by percentage gain)
   const marketIds = res.rows.map((m) => m.id);
   const winnersRes =
     marketIds.length > 0
       ? await pool.query<{
           market_id: string;
           username: string;
-          winning_shares: number;
+          percent_gain: number;
         }>(
           `
             WITH market_outcomes AS (
@@ -64,7 +64,7 @@ export default async function ArchivePage() {
               FROM markets
               WHERE id = ANY($1::uuid[])
             ),
-            winning_positions AS (
+            position_returns AS (
               SELECT
                 p.market_id,
                 p.user_id,
@@ -72,34 +72,53 @@ export default async function ArchivePage() {
                   WHEN mo.outcome = 'YES' THEN p.shares_yes
                   WHEN mo.outcome = 'NO' THEN p.shares_no
                   ELSE 0
-                END AS winning_shares
+                END AS winning_shares,
+                CASE
+                  WHEN mo.outcome = 'YES' THEN p.cost_cents_yes
+                  WHEN mo.outcome = 'NO' THEN p.cost_cents_no
+                  ELSE 0
+                END AS cost_cents
               FROM positions p
               JOIN market_outcomes mo ON mo.id = p.market_id
               WHERE p.market_id = ANY($1::uuid[])
                 AND (
-                  (mo.outcome = 'YES' AND p.shares_yes > 0)
-                  OR (mo.outcome = 'NO' AND p.shares_no > 0)
+                  (mo.outcome = 'YES' AND p.shares_yes > 0 AND p.cost_cents_yes > 0)
+                  OR (mo.outcome = 'NO' AND p.shares_no > 0 AND p.cost_cents_no > 0)
                 )
+            ),
+            calculated_returns AS (
+              SELECT
+                market_id,
+                user_id,
+                winning_shares,
+                cost_cents,
+                round(winning_shares * 100)::bigint AS payout_cents,
+                CASE
+                  WHEN cost_cents > 0 THEN
+                    ((round(winning_shares * 100)::bigint - cost_cents)::numeric / cost_cents::numeric * 100)
+                  ELSE 0
+                END AS percent_gain
+              FROM position_returns
             ),
             ranked_winners AS (
               SELECT
-                wp.market_id,
+                cr.market_id,
                 u.username,
-                wp.winning_shares,
+                cr.percent_gain,
                 ROW_NUMBER() OVER (
-                  PARTITION BY wp.market_id
-                  ORDER BY wp.winning_shares DESC
+                  PARTITION BY cr.market_id
+                  ORDER BY cr.percent_gain DESC
                 ) AS rank
-              FROM winning_positions wp
-              JOIN users u ON u.id = wp.user_id
+              FROM calculated_returns cr
+              JOIN users u ON u.id = cr.user_id
             )
-            SELECT market_id, username, winning_shares
+            SELECT market_id, username, percent_gain
             FROM ranked_winners
             WHERE rank = 1
           `,
           [marketIds]
         )
-      : { rows: [] as Array<{ market_id: string; username: string; winning_shares: number }> };
+      : { rows: [] as Array<{ market_id: string; username: string; percent_gain: number }> };
 
   const biggestWinnerByMarketId = new Map<string, string>();
   for (const winner of winnersRes.rows) {
