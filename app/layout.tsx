@@ -32,6 +32,9 @@ export default async function RootLayout({
               <Link href="/markets" className="hover:text-zinc-50">
                 Markets
               </Link>
+              <Link href="/markets/archive" className="hover:text-zinc-50">
+                Archive
+              </Link>
               <Link href="/suggestions" className="hover:text-zinc-50">
                 Suggestions
               </Link>

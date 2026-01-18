@@ -116,6 +116,12 @@ export default async function MarketsPage() {
       <div className="flex items-end justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Markets</h1>
         <div className="flex items-center gap-2">
+          <Link
+            href="/markets/archive"
+            className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-50 hover:bg-zinc-900"
+          >
+            Archive
+          </Link>
           {!user.isAdmin ? (
             <Link
               href="/suggestions"
