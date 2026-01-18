@@ -49,6 +49,63 @@ export default async function ArchivePage() {
     `
   );
 
+  // Get biggest winners for each resolved market
+  const marketIds = res.rows.map((m) => m.id);
+  const winnersRes =
+    marketIds.length > 0
+      ? await pool.query<{
+          market_id: string;
+          username: string;
+          winning_shares: number;
+        }>(
+          `
+            WITH market_outcomes AS (
+              SELECT id, outcome
+              FROM markets
+              WHERE id = ANY($1::uuid[])
+            ),
+            winning_positions AS (
+              SELECT
+                p.market_id,
+                p.user_id,
+                CASE
+                  WHEN mo.outcome = 'YES' THEN p.shares_yes
+                  WHEN mo.outcome = 'NO' THEN p.shares_no
+                  ELSE 0
+                END AS winning_shares
+              FROM positions p
+              JOIN market_outcomes mo ON mo.id = p.market_id
+              WHERE p.market_id = ANY($1::uuid[])
+                AND (
+                  (mo.outcome = 'YES' AND p.shares_yes > 0)
+                  OR (mo.outcome = 'NO' AND p.shares_no > 0)
+                )
+            ),
+            ranked_winners AS (
+              SELECT
+                wp.market_id,
+                u.username,
+                wp.winning_shares,
+                ROW_NUMBER() OVER (
+                  PARTITION BY wp.market_id
+                  ORDER BY wp.winning_shares DESC
+                ) AS rank
+              FROM winning_positions wp
+              JOIN users u ON u.id = wp.user_id
+            )
+            SELECT market_id, username, winning_shares
+            FROM ranked_winners
+            WHERE rank = 1
+          `,
+          [marketIds]
+        )
+      : { rows: [] as Array<{ market_id: string; username: string; winning_shares: number }> };
+
+  const biggestWinnerByMarketId = new Map<string, string>();
+  for (const winner of winnersRes.rows) {
+    biggestWinnerByMarketId.set(winner.market_id, winner.username);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-4">
@@ -74,6 +131,7 @@ export default async function ArchivePage() {
               : m.outcome === "NO"
                 ? "text-red-400"
                 : "text-zinc-400";
+          const biggestWinner = biggestWinnerByMarketId.get(m.id);
 
           return (
             <li
@@ -100,6 +158,11 @@ export default async function ArchivePage() {
                     <span>
                       Closed {formatPacificDateTime(m.closes_at)}
                     </span>
+                    {biggestWinner ? (
+                      <span className="text-zinc-300">
+                        🏆 {biggestWinner}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex flex-col items-end text-right">

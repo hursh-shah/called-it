@@ -43,6 +43,7 @@ export default async function MarketsPage() {
         volume_cents,
         created_at
       FROM markets
+      WHERE status != 'RESOLVED' AND outcome IS NULL
       ORDER BY created_at DESC
       LIMIT 100
     `
