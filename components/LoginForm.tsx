@@ -3,10 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function LoginForm({ initialToken }: { initialToken?: string }) {
+export default function LoginForm() {
   const router = useRouter();
   const [username, setUsername] = useState("");
-  const [token, setToken] = useState(initialToken ?? "");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -18,7 +18,7 @@ export default function LoginForm({ initialToken }: { initialToken?: string }) {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, token })
+        body: JSON.stringify({ username, password })
       });
       const text = await res.text();
       const data = (() => {
@@ -52,17 +52,19 @@ export default function LoginForm({ initialToken }: { initialToken?: string }) {
           onChange={(e) => setUsername(e.target.value)}
           className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-400"
           placeholder="e.g. hursh"
-          autoComplete="nickname"
+          autoComplete="username"
           required
         />
       </label>
       <label className="block space-y-1">
-        <span className="text-sm text-zinc-200">Invite token</span>
+        <span className="text-sm text-zinc-200">Password</span>
         <input
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-400"
-          placeholder="from your invite link"
+          placeholder="Enter your password"
+          autoComplete="current-password"
           required
         />
       </label>

@@ -23,6 +23,35 @@ export function createSessionToken() {
   return crypto.randomBytes(32).toString("base64url");
 }
 
+export async function hashPassword(password: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const salt = crypto.randomBytes(16);
+    crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+      if (err) reject(err);
+      resolve(salt.toString("hex") + ":" + derivedKey.toString("hex"));
+    });
+  });
+}
+
+export async function verifyPassword(
+  password: string,
+  hash: string
+): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const [saltHex, keyHex] = hash.split(":");
+    if (!saltHex || !keyHex) {
+      resolve(false);
+      return;
+    }
+    const salt = Buffer.from(saltHex, "hex");
+    crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+      if (err) reject(err);
+      const keyBuffer = Buffer.from(keyHex, "hex");
+      resolve(crypto.timingSafeEqual(derivedKey, keyBuffer));
+    });
+  });
+}
+
 export function getMonthlyAllowanceCents() {
   const raw = process.env.MONTHLY_ALLOWANCE_CREDITS ?? "100";
   const credits = Number(raw);

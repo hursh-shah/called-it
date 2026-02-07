@@ -45,6 +45,9 @@ export default async function RootLayout({
               ) : null}
               {user ? (
                 <div className="flex items-center gap-3">
+                  <Link href="/profile" className="text-sm hover:text-zinc-50">
+                    Profile
+                  </Link>
                   <span className="hidden text-xs text-zinc-400 sm:inline">
                     {user.username} • {formatCredits(user.balanceCents)}
                   </span>
