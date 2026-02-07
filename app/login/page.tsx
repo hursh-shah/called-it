@@ -20,7 +20,7 @@ export default async function LoginPage({
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
         <p className="text-sm text-zinc-300">
-          Sign in with your username and password. If you haven't set a password yet, use your invite code.
+          Sign in with your username and password. If you haven&apos;t set a password yet, use your invite code.
         </p>
       </div>
       <LoginForm initialToken={token} />

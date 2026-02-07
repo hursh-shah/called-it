@@ -79,7 +79,7 @@ export default function LoginForm({ initialToken }: { initialToken?: string }) {
           autoComplete="current-password"
         />
         <p className="text-xs text-zinc-400">
-          If you haven't set a password yet, use your invite code below instead.
+          If you haven&apos;t set a password yet, use your invite code below instead.
         </p>
       </label>
       <div className="relative">
