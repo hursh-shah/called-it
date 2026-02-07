@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function LoginForm() {
+export default function LoginForm({ initialToken }: { initialToken?: string }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteToken, setInviteToken] = useState(initialToken ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -15,10 +16,21 @@ export default function LoginForm() {
     setError(null);
     setIsSubmitting(true);
     try {
+      const body: { username: string; password?: string; inviteToken?: string } = {
+        username
+      };
+      
+      // Include password if provided, otherwise include invite token
+      if (password) {
+        body.password = password;
+      } else if (inviteToken) {
+        body.inviteToken = inviteToken;
+      }
+
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify(body)
       });
       const text = await res.text();
       const data = (() => {
@@ -63,9 +75,30 @@ export default function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-400"
-          placeholder="Enter your password"
+          placeholder="Enter your password (or use invite code below)"
           autoComplete="current-password"
-          required
+        />
+        <p className="text-xs text-zinc-400">
+          If you haven't set a password yet, use your invite code below instead.
+        </p>
+      </label>
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-zinc-700"></div>
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-zinc-950 px-2 text-zinc-400">Or</span>
+        </div>
+      </div>
+      <label className="block space-y-1">
+        <span className="text-sm text-zinc-200">Invite Code</span>
+        <input
+          type="text"
+          value={inviteToken}
+          onChange={(e) => setInviteToken(e.target.value)}
+          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-400"
+          placeholder="Use this if you haven't set a password yet"
+          autoComplete="off"
         />
       </label>
       {error ? (
@@ -75,7 +108,7 @@ export default function LoginForm() {
       ) : null}
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || (!password && !inviteToken)}
         className="rounded-md bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-zinc-200 disabled:opacity-50"
       >
         {isSubmitting ? "Logging in…" : "Login"}

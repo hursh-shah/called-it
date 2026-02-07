@@ -22,8 +22,39 @@ const LoginBody = z.object({
     .min(2)
     .max(20)
     .regex(/^[a-zA-Z0-9_]+$/, "Use letters, numbers, underscores only."),
-  password: z.string().min(1, "Password is required.")
+  password: z.string().optional(),
+  inviteToken: z.string().optional()
 });
+
+function normalizeSecret(value: string | undefined, name: string) {
+  if (!value) throw new Error(`Missing ${name} in environment.`);
+  const trimmed = value.trim();
+  const unquoted =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ? trimmed.slice(1, -1)
+      : trimmed;
+  return unquoted.trim();
+}
+
+function safeEqual(a: string, b: string) {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) return false;
+  return crypto.timingSafeEqual(aBuf, bBuf);
+}
+
+function normalizeInvite(token: string) {
+  const userToken = normalizeSecret(process.env.INVITE_TOKEN, "INVITE_TOKEN");
+  const adminToken = normalizeSecret(
+    process.env.ADMIN_INVITE_TOKEN,
+    "ADMIN_INVITE_TOKEN"
+  );
+  const isAdmin = safeEqual(token, adminToken);
+  const isUser = safeEqual(token, userToken);
+  if (!isAdmin && !isUser) return null;
+  return { isAdmin };
+}
 
 function safeMessage(err: unknown) {
   const msg = err instanceof Error ? err.message : "Internal error.";
@@ -79,23 +110,60 @@ export async function POST(req: Request) {
 
     const user = existing.rows[0];
 
-    // Check if user has set a password
-    if (!user.password_hash) {
-      await client.query("ROLLBACK");
-      return NextResponse.json(
-        { error: "Password not set. Please set a password in your profile first." },
-        { status: 401 }
-      );
-    }
+    // Authentication logic:
+    // - If user has password_hash set, require password authentication
+    // - If user doesn't have password_hash, allow invite code authentication
+    if (user.password_hash) {
+      // User has password set - require password login
+      if (!parsed.data.password) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          { error: "Password is required for this account." },
+          { status: 400 }
+        );
+      }
 
-    // Verify password
-    const passwordValid = await verifyPassword(parsed.data.password, user.password_hash);
-    if (!passwordValid) {
-      await client.query("ROLLBACK");
-      return NextResponse.json(
-        { error: "Invalid username or password." },
-        { status: 401 }
-      );
+      const passwordValid = await verifyPassword(parsed.data.password, user.password_hash);
+      if (!passwordValid) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          { error: "Invalid username or password." },
+          { status: 401 }
+        );
+      }
+    } else {
+      // User doesn't have password set - allow invite code login
+      if (!parsed.data.inviteToken) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          { error: "Password not set. Please use your invite code to log in and set a password." },
+          { status: 401 }
+        );
+      }
+
+      let invite: { isAdmin: boolean } | null = null;
+      try {
+        invite = normalizeInvite(parsed.data.inviteToken);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        return NextResponse.json({ error: safeMessage(err) }, { status: 500 });
+      }
+      if (!invite) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          { error: "Invalid invite token." },
+          { status: 401 }
+        );
+      }
+
+      // Update admin status if invite is admin
+      if (invite.isAdmin && !user.is_admin) {
+        await client.query<{ is_admin: boolean }>(
+          "UPDATE users SET is_admin = true WHERE id = $1 RETURNING is_admin",
+          [user.id]
+        );
+        user.is_admin = true;
+      }
     }
 
     userId = user.id;

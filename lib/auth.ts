@@ -53,7 +53,7 @@ export async function verifyPassword(
 }
 
 export function getMonthlyAllowanceCents() {
-  const raw = process.env.MONTHLY_ALLOWANCE_CREDITS ?? "100";
+  const raw = process.env.MONTHLY_ALLOWANCE_CREDITS ?? "500";
   const credits = Number(raw);
   if (!Number.isFinite(credits) || credits <= 0) {
     throw new Error("Invalid MONTHLY_ALLOWANCE_CREDITS.");

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import AdminCreditAdjuster from "../../components/AdminCreditAdjuster";
 import AdminMarketRow from "../../components/AdminMarketRow";
+import AdminUserDeleter from "../../components/AdminUserDeleter";
 import CreateMarketForm from "../../components/CreateMarketForm";
 import { getCurrentUser } from "../../lib/auth";
 import { getPool } from "../../lib/db";
@@ -124,6 +125,14 @@ export default async function AdminPage({
       />
 
       <AdminCreditAdjuster
+        users={usersRes.rows.map((u) => ({
+          id: u.id,
+          username: u.username,
+          balanceCents: Number(u.balance_cents)
+        }))}
+      />
+
+      <AdminUserDeleter
         users={usersRes.rows.map((u) => ({
           id: u.id,
           username: u.username,
