@@ -192,6 +192,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     is_admin: boolean;
     balance_cents: string;
     last_allowance_ym: number | null;
+    last_allowance_cents: string | null;
   }>(
     `
       SELECT
@@ -199,7 +200,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
         u.username,
         u.is_admin,
         u.balance_cents,
-        u.last_allowance_ym
+        u.last_allowance_ym,
+        u.last_allowance_cents
       FROM sessions s
       JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = $1 AND s.expires_at > now()
@@ -210,11 +212,57 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   const row = res.rows[0];
   if (!row) return null;
+
+  let balanceCents = Number(row.balance_cents);
+  let lastAllowanceYm = row.last_allowance_ym;
+  const nowYm = currentYm();
+
+  if (lastAllowanceYm == null || lastAllowanceYm < nowYm) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const locked = await client.query<{
+        balance_cents: string;
+        last_allowance_ym: number | null;
+        last_allowance_cents: string | null;
+      }>(
+        "SELECT balance_cents, last_allowance_ym, last_allowance_cents FROM users WHERE id = $1 FOR UPDATE",
+        [row.id]
+      );
+      const lockedRow = locked.rows[0];
+      if (lockedRow) {
+        const result = await grantMonthlyAllowanceTx(client, {
+          id: row.id,
+          lastAllowanceYm: lockedRow.last_allowance_ym,
+          lastAllowanceCents: lockedRow.last_allowance_cents
+            ? Number(lockedRow.last_allowance_cents)
+            : null
+        });
+
+        const refreshed = await client.query<{ balance_cents: string }>(
+          "SELECT balance_cents FROM users WHERE id = $1",
+          [row.id]
+        );
+        balanceCents = Number(refreshed.rows[0].balance_cents);
+        if (result.monthsToGrant > 0) {
+          lastAllowanceYm = result.nowYm;
+        }
+      }
+
+      await client.query("COMMIT");
+    } catch {
+      await client.query("ROLLBACK").catch(() => {});
+    } finally {
+      client.release();
+    }
+  }
+
   return {
     id: row.id,
     username: row.username,
     isAdmin: row.is_admin,
-    balanceCents: Number(row.balance_cents),
-    lastAllowanceYm: row.last_allowance_ym
+    balanceCents,
+    lastAllowanceYm
   };
 }
