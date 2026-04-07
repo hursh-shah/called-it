@@ -19,11 +19,12 @@ export default function LoginForm({ initialToken }: { initialToken?: string }) {
       const body: { username: string; password?: string; inviteToken?: string } = {
         username
       };
-      
-      // Include password if provided, otherwise include invite token
+
+      // Either credential works for an existing username.
       if (password) {
         body.password = password;
-      } else if (inviteToken) {
+      }
+      if (inviteToken) {
         body.inviteToken = inviteToken;
       }
 
@@ -75,11 +76,11 @@ export default function LoginForm({ initialToken }: { initialToken?: string }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-400"
-          placeholder="Enter your password (or use invite code below)"
+          placeholder="Enter your password"
           autoComplete="current-password"
         />
         <p className="text-xs text-zinc-400">
-          If you haven&apos;t set a password yet, use your invite code below instead.
+          Existing users can log in with either their password or invite code.
         </p>
       </label>
       <div className="relative">
@@ -97,7 +98,7 @@ export default function LoginForm({ initialToken }: { initialToken?: string }) {
           value={inviteToken}
           onChange={(e) => setInviteToken(e.target.value)}
           className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-400"
-          placeholder="Use this if you haven't set a password yet"
+          placeholder="Or use your invite code"
           autoComplete="off"
         />
       </label>

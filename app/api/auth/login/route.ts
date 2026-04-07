@@ -110,40 +110,30 @@ export async function POST(req: Request) {
 
     const user = existing.rows[0];
 
-    // Authentication logic:
-    // - If user has password_hash set, require password authentication
-    // - If user doesn't have password_hash, allow invite code authentication
-    if (user.password_hash) {
-      // User has password set - require password login
-      if (!parsed.data.password) {
-        await client.query("ROLLBACK");
-        return NextResponse.json(
-          { error: "Password is required for this account." },
-          { status: 400 }
-        );
-      }
+    const password = parsed.data.password?.trim();
+    const inviteToken = parsed.data.inviteToken?.trim();
 
-      const passwordValid = await verifyPassword(parsed.data.password, user.password_hash);
-      if (!passwordValid) {
-        await client.query("ROLLBACK");
-        return NextResponse.json(
-          { error: "Invalid username or password." },
-          { status: 401 }
-        );
-      }
-    } else {
-      // User doesn't have password set - allow invite code login
-      if (!parsed.data.inviteToken) {
-        await client.query("ROLLBACK");
-        return NextResponse.json(
-          { error: "Password not set. Please use your invite code to log in and set a password." },
-          { status: 401 }
-        );
-      }
+    if (!password && !inviteToken) {
+      await client.query("ROLLBACK");
+      return NextResponse.json(
+        { error: "Enter your password or invite code." },
+        { status: 400 }
+      );
+    }
+
+    let authenticated = false;
+    let inviteAttempted = false;
+
+    if (password && user.password_hash) {
+      authenticated = await verifyPassword(password, user.password_hash);
+    }
+
+    if (!authenticated && inviteToken) {
+      inviteAttempted = true;
 
       let invite: { isAdmin: boolean } | null = null;
       try {
-        invite = normalizeInvite(parsed.data.inviteToken);
+        invite = normalizeInvite(inviteToken);
       } catch (err) {
         await client.query("ROLLBACK");
         return NextResponse.json({ error: safeMessage(err) }, { status: 500 });
@@ -156,7 +146,9 @@ export async function POST(req: Request) {
         );
       }
 
-      // Update admin status if invite is admin
+      authenticated = true;
+
+      // Preserve the existing admin invite behavior for recognized users.
       if (invite.isAdmin && !user.is_admin) {
         await client.query<{ is_admin: boolean }>(
           "UPDATE users SET is_admin = true WHERE id = $1 RETURNING is_admin",
@@ -164,6 +156,19 @@ export async function POST(req: Request) {
         );
         user.is_admin = true;
       }
+    }
+
+    if (!authenticated) {
+      await client.query("ROLLBACK");
+      return NextResponse.json(
+        {
+          error:
+            user.password_hash || inviteAttempted
+              ? "Invalid username or password."
+              : "Password not set. Use your invite code to log in."
+        },
+        { status: 401 }
+      );
     }
 
     userId = user.id;
